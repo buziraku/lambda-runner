@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from lambdarunner.runner import LambdaTimeoutError, invoke, parse_event
+from lambdarunner.runner import HandlerError, LambdaTimeoutError, invoke, parse_event
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -38,6 +38,14 @@ class TestParseEvent:
         with pytest.raises(json.JSONDecodeError):
             parse_event("not valid json")
 
+    def test_inline_json_list(self):
+        result = parse_event("[1, 2, 3]")
+        assert result == [1, 2, 3]
+
+    def test_inline_json_string(self):
+        result = parse_event('"hello"')
+        assert result == "hello"
+
 
 class TestInvoke:
     def test_successful_handler(self):
@@ -60,12 +68,17 @@ class TestInvoke:
         assert result["body"] == "Hello World"
 
     def test_handler_exception_propagates(self):
-        with pytest.raises(RuntimeError, match="Something went wrong"):
+        with pytest.raises(
+            HandlerError, match="RuntimeError: Something went wrong"
+        ) as exc_info:
             invoke(
                 handler_path="sample_handler.error_handler",
                 event={},
                 timeout=10,
             )
+        assert exc_info.value.exc_type_name == "RuntimeError"
+        assert "Something went wrong" in exc_info.value.exc_message
+        assert exc_info.value.exc_traceback
 
     def test_timeout_raises_lambda_timeout_error(self):
         with pytest.raises(LambdaTimeoutError) as exc_info:
@@ -94,6 +107,46 @@ class TestInvoke:
                 handler_path="sample_handler.nonexistent_func",
                 event={},
                 timeout=5,
+            )
+
+    def test_invoke_with_memory(self):
+        result, elapsed = invoke(
+            handler_path="sample_handler.lambda_handler",
+            event={"name": "Test"},
+            timeout=10,
+            memory=256,
+        )
+        assert result["statusCode"] == 200
+
+    def test_handler_error_has_traceback(self):
+        with pytest.raises(HandlerError) as exc_info:
+            invoke(
+                handler_path="sample_handler.error_handler",
+                event={},
+                timeout=10,
+            )
+        assert "sample_handler" in exc_info.value.exc_traceback
+        assert "RuntimeError" in exc_info.value.exc_traceback
+
+    def test_lambda_env_vars_set(self):
+        result, _ = invoke(
+            handler_path="sample_handler.env_handler",
+            event={},
+            timeout=10,
+            memory=512,
+            region="eu-west-1",
+        )
+        assert result["function_name"] == "sample_handler"
+        assert result["region"] == "eu-west-1"
+        assert result["memory"] == "512"
+        assert result["handler"] == "sample_handler.env_handler"
+
+    def test_process_crash_raises_handler_error(self):
+        with pytest.raises(HandlerError, match="ProcessError"):
+            invoke(
+                handler_path="sample_handler.crash_handler",
+                event={},
+                timeout=10,
             )
 
 
