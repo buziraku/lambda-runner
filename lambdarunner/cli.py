@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
 
+from lambdarunner import __version__
 from lambdarunner.loader import load_env_file
 from lambdarunner.runner import HandlerError, LambdaTimeoutError, invoke, parse_event
 
@@ -22,8 +23,25 @@ console = Console()
 err_console = Console(stderr=True)
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"lambdarunner {__version__}")
+        raise typer.Exit()
+
+
 @app.callback()
-def main() -> None:
+def main(
+    version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            "-V",
+            callback=_version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = False,
+) -> None:
     """Run AWS Lambda handlers locally. No Docker, no SAM, no AWS."""
 
 

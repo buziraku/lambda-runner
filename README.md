@@ -51,17 +51,20 @@ lambdarunner invoke handler.lambda_handler --env-file .env --region eu-west-1
 |------|-------|---------|-------------|
 | `--event` | `-e` | `{}` | Path to a JSON file or inline JSON string |
 | `--timeout` | `-t` | `30` | Timeout in seconds |
+| `--memory` | `-m` | `128` | Simulated memory limit in MB |
 | `--env-file` | | `None` | Path to a `.env` file to load |
 | `--region` | | `us-east-1` | Simulated `AWS_DEFAULT_REGION` |
-| `--profile` | | `None` | AWS profile name shown in context |
+| `--profile` | | `None` | AWS profile name for context |
 | `--pretty / --no-pretty` | | `True` | Pretty print JSON output |
+| `--traceback` | | `False` | Show full traceback on handler errors |
+| `--version` | `-V` | | Show version and exit |
 
 ## Why lambdarunner?
 
 - Built from scratch with modern Python (3.12+)
 - Polished CLI experience with Typer + Rich
 - Faithful Lambda Context simulation, including `get_remaining_time_in_millis()`
-- Timeout handling with `concurrent.futures`
+- Real timeout handling with process isolation via `multiprocessing`
 
 ## License
 

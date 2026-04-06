@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lambdarunner"
-version = "0.1.0"
+version = "0.1.1"
 description = "Run AWS Lambda handlers locally. No Docker, no SAM, no AWS connection required."
 authors = ["Your Name <you@example.com>"]
 license = "MIT"
