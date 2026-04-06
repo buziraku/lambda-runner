@@ -46,6 +46,13 @@ class TestParseEvent:
         result = parse_event('"hello"')
         assert result == "hello"
 
+    def test_from_stdin(self, monkeypatch):
+        from io import StringIO
+
+        monkeypatch.setattr("sys.stdin", StringIO('{"source": "stdin"}'))
+        result = parse_event("-")
+        assert result == {"source": "stdin"}
+
 
 class TestInvoke:
     def test_successful_handler(self):

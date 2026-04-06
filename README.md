@@ -43,13 +43,16 @@ lambdarunner invoke handler.lambda_handler -e event.json -t 10
 
 # With environment variables
 lambdarunner invoke handler.lambda_handler --env-file .env --region eu-west-1
+
+# With event from stdin
+echo '{"name": "Pipe"}' | lambdarunner invoke handler.lambda_handler -e -
 ```
 
 ## CLI Options
 
 | Flag | Short | Default | Description |
 |------|-------|---------|-------------|
-| `--event` | `-e` | `{}` | Path to a JSON file or inline JSON string |
+| `--event` | `-e` | `{}` | Path to a JSON file, inline JSON string, or `-` for stdin |
 | `--timeout` | `-t` | `30` | Timeout in seconds |
 | `--memory` | `-m` | `128` | Simulated memory limit in MB |
 | `--env-file` | | `None` | Path to a `.env` file to load |

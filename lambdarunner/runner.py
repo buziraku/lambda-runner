@@ -3,6 +3,7 @@
 import json
 import multiprocessing
 import os
+import sys
 import time
 import traceback as tb_module
 from collections.abc import Callable
@@ -37,16 +38,19 @@ class HandlerError(Exception):
 
 
 def parse_event(event_input: str) -> Any:
-    """Parse event from a JSON file path or inline JSON string.
+    """Parse event from a JSON file path, inline JSON string, or stdin.
 
     Args:
-        event_input: Path to a .json file, or a raw JSON string.
+        event_input: Path to a .json file, a raw JSON string, or "-" for stdin.
 
     Returns:
         Parsed event data.
     """
     if not event_input or event_input == "{}":
         return {}
+
+    if event_input == "-":
+        return json.loads(sys.stdin.read())
 
     path = Path(event_input)
     if path.exists() and path.is_file():
