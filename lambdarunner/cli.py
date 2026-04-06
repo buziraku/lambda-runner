@@ -87,6 +87,10 @@ def invoke_cmd(
         bool,
         typer.Option("--traceback", help="Show full traceback on handler errors"),
     ] = False,
+    watch: Annotated[
+        bool,
+        typer.Option("--watch", "-w", help="Re-invoke on handler file changes"),
+    ] = False,
 ) -> None:
     """Invoke a Lambda handler locally."""
     # Display invocation info
@@ -134,77 +138,120 @@ def invoke_cmd(
         )
         raise typer.Exit(1) from None
 
-    # Invoke
-    console.print("[bold cyan]▶ Invoking...[/bold cyan]")
-
-    try:
-        result, elapsed = invoke(
-            handler_path=handler,
-            event=parsed_event,
-            timeout=timeout,
-            memory=memory,
-            region=region,
-        )
-    except LambdaTimeoutError as exc:
-        err_console.print(
-            Panel(
-                f"[red]LambdaTimeoutError: {exc}[/red]",
-                title="Error",
-                border_style="red",
+    def _do_invoke() -> bool:
+        """Execute one invocation. Returns True on success."""
+        console.print("[bold cyan]▶ Invoking...[/bold cyan]")
+        try:
+            result, elapsed = invoke(
+                handler_path=handler,
+                event=parsed_event,
+                timeout=timeout,
+                memory=memory,
+                region=region,
             )
-        )
-        raise typer.Exit(1) from None
-    except (ValueError, ModuleNotFoundError, AttributeError) as exc:
-        err_console.print(
-            Panel(
-                f"[red]{type(exc).__name__}: {exc}[/red]",
-                title="Error",
-                border_style="red",
-            )
-        )
-        raise typer.Exit(1) from None
-    except HandlerError as exc:
-        err_console.print(
-            Panel(
-                f"[red]{exc}[/red]",
-                title="Handler Error",
-                border_style="red",
-            )
-        )
-        if traceback and exc.exc_traceback:
+        except LambdaTimeoutError as exc:
             err_console.print(
                 Panel(
-                    exc.exc_traceback.rstrip(),
-                    title="Traceback",
-                    border_style="yellow",
+                    f"[red]LambdaTimeoutError: {exc}[/red]",
+                    title="Error",
+                    border_style="red",
                 )
             )
-        elif not traceback:
-            console.print("[dim]Use --traceback for full error details.[/dim]")
-        raise typer.Exit(1) from None
-    except Exception as exc:
+            return False
+        except (ValueError, ModuleNotFoundError, AttributeError) as exc:
+            err_console.print(
+                Panel(
+                    f"[red]{type(exc).__name__}: {exc}[/red]",
+                    title="Error",
+                    border_style="red",
+                )
+            )
+            return False
+        except HandlerError as exc:
+            err_console.print(
+                Panel(
+                    f"[red]{exc}[/red]",
+                    title="Handler Error",
+                    border_style="red",
+                )
+            )
+            if traceback and exc.exc_traceback:
+                err_console.print(
+                    Panel(
+                        exc.exc_traceback.rstrip(),
+                        title="Traceback",
+                        border_style="yellow",
+                    )
+                )
+            elif not traceback:
+                console.print("[dim]Use --traceback for full error details.[/dim]")
+            return False
+        except Exception as exc:
+            err_console.print(
+                Panel(
+                    f"[red]{type(exc).__name__}: {exc}[/red]",
+                    title="Error",
+                    border_style="red",
+                )
+            )
+            return False
+
+        elapsed_ms = int(elapsed * 1000)
+        if isinstance(result, (dict, list)):
+            if pretty:
+                formatted = json.dumps(result, indent=2, ensure_ascii=False)
+                output = Syntax(formatted, "json", theme="monokai")
+            else:
+                output = json.dumps(result, ensure_ascii=False)
+        else:
+            output = str(result)
+        console.print(
+            Panel(output, title=f"Result ({elapsed_ms}ms)", border_style="green")
+        )
+        return True
+
+    # Invoke
+    success = _do_invoke()
+
+    if not watch:
+        if not success:
+            raise typer.Exit(1)
+        return
+
+    # Watch mode
+    from lambdarunner.loader import (
+        invalidate_handler_cache,
+        resolve_handler_file,
+    )
+
+    try:
+        from watchfiles import watch as watch_files
+    except ImportError:
         err_console.print(
             Panel(
-                f"[red]{type(exc).__name__}: {exc}[/red]",
-                title="Error",
+                "[red]watchfiles is required for --watch mode.\n"
+                "Install with: pip install lambdarunner[watch][/red]",
+                title="Missing Dependency",
                 border_style="red",
             )
         )
         raise typer.Exit(1) from None
 
-    # Display result
-    elapsed_ms = int(elapsed * 1000)
+    handler_file = resolve_handler_file(handler)
+    console.print(
+        f"\n[dim]Watching {handler_file} for changes... (Ctrl+C to stop)[/dim]"
+    )
 
-    if isinstance(result, (dict, list)):
-        if pretty:
-            formatted = json.dumps(result, indent=2, ensure_ascii=False)
-            output = Syntax(formatted, "json", theme="monokai")
-        else:
-            output = json.dumps(result, ensure_ascii=False)
-    else:
-        output = str(result)
-
-    console.print(Panel(output, title=f"Result ({elapsed_ms}ms)", border_style="green"))
+    try:
+        for _changes in watch_files(handler_file):
+            console.print("\n[dim]Change detected, re-invoking...[/dim]")
+            invalidate_handler_cache(handler)
+            _do_invoke()
+            console.print(
+                f"\n[dim]Watching {handler_file} for changes... (Ctrl+C to stop)[/dim]"
+            )
+    except KeyboardInterrupt:
+        console.print("\n[dim]Watch mode stopped.[/dim]")
 
 
 if __name__ == "__main__":

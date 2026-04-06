@@ -157,6 +157,38 @@ class TestInvoke:
             )
 
 
+class TestResolveHandlerFile:
+    def test_resolves_to_file(self):
+        from lambdarunner.loader import resolve_handler_file
+
+        path = resolve_handler_file("sample_handler.lambda_handler")
+        assert path.name == "sample_handler.py"
+        assert path.exists()
+
+    def test_invalid_format_raises(self):
+        from lambdarunner.loader import resolve_handler_file
+
+        with pytest.raises(ValueError, match="Invalid handler format"):
+            resolve_handler_file("no_dot_here")
+
+
+class TestInvalidateHandlerCache:
+    def test_removes_from_sys_modules(self):
+        import importlib
+
+        from lambdarunner.loader import invalidate_handler_cache
+
+        importlib.import_module("sample_handler")
+        assert "sample_handler" in sys.modules
+        invalidate_handler_cache("sample_handler.lambda_handler")
+        assert "sample_handler" not in sys.modules
+
+    def test_no_error_if_not_cached(self):
+        from lambdarunner.loader import invalidate_handler_cache
+
+        invalidate_handler_cache("nonexistent_module.handler")
+
+
 class TestLoadEnvFile:
     def test_load_env_file(self, tmp_path):
         from lambdarunner.loader import load_env_file

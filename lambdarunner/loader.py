@@ -46,6 +46,38 @@ def load_handler(handler_path: str) -> Callable[..., Any]:
     return handler
 
 
+def resolve_handler_file(handler_path: str) -> Path:
+    """Resolve a handler path to its source file path.
+
+    Args:
+        handler_path: Dotted path like 'module.function'.
+
+    Returns:
+        Path to the handler's source file.
+    """
+    parts = handler_path.rsplit(".", 1)
+    if len(parts) != 2:
+        raise ValueError(
+            f"Invalid handler format: {handler_path!r}. "
+            f"Expected 'module.function' (e.g. 'handler.lambda_handler')."
+        )
+
+    module_path = parts[0]
+
+    cwd = str(Path.cwd())
+    if cwd not in sys.path:
+        sys.path.insert(0, cwd)
+
+    module = importlib.import_module(module_path)
+    return Path(module.__file__)
+
+
+def invalidate_handler_cache(handler_path: str) -> None:
+    """Remove a handler's module from the import cache."""
+    module_path = handler_path.rsplit(".", 1)[0]
+    sys.modules.pop(module_path, None)
+
+
 def load_env_file(env_file: str) -> dict[str, str]:
     """Load environment variables from a .env file.
 

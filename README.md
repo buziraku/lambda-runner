@@ -46,7 +46,12 @@ lambdarunner invoke handler.lambda_handler --env-file .env --region eu-west-1
 
 # With event from stdin
 echo '{"name": "Pipe"}' | lambdarunner invoke handler.lambda_handler -e -
+
+# Watch mode (re-invoke on file changes)
+lambdarunner invoke handler.lambda_handler -e event.json --watch
 ```
+
+Watch mode requires: `pip install lambdarunner[watch]`
 
 ## CLI Options
 
@@ -60,6 +65,7 @@ echo '{"name": "Pipe"}' | lambdarunner invoke handler.lambda_handler -e -
 | `--profile` | | `None` | AWS profile name for context |
 | `--pretty / --no-pretty` | | `True` | Pretty print JSON output |
 | `--traceback` | | `False` | Show full traceback on handler errors |
+| `--watch` | `-w` | `False` | Re-invoke on handler file changes |
 | `--version` | `-V` | | Show version and exit |
 
 ## Shell Completion
