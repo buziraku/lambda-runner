@@ -45,6 +45,13 @@ poetry run ruff format --check .  # check format without modifying
 - The subprocess target function (`_run_handler_in_process`) must be defined at module level (required by multiprocessing).
 - Exception propagation from subprocess uses string tuples `("error", type_name, message, traceback_str, elapsed)`, never raw exception objects.
 
+## Dependency Security
+
+- **Always use exact version pins (`==`)** in `pyproject.toml`. Never use `>=`, `^`, or `~`.
+- **Renovate** handles dependency updates via PRs with a 3-day minimum release age (`minimumReleaseAge`). Never update dependencies manually — let Renovate create the PR and review it before merging.
+- **`poetry.lock` must always be committed.** It contains SHA256 hashes that prevent tampered packages from being installed.
+- When adding a new dependency, pin it to the exact version installed: `poetry show <package>` to get the version, then add `package = "==X.Y.Z"` to `pyproject.toml`.
+
 ## Known Pitfalls
 
 - `importlib.import_module()` caches modules in `sys.modules`. With multiprocessing + fork, the subprocess inherits the parent's module cache.

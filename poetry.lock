@@ -408,4 +408,4 @@ watch = ["watchfiles"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<4.0"
-content-hash = "e09b58aac5072317f86769468ae35acfb97bbd4510204d5c291549b16c32e9ea"
+content-hash = "022772614f5fae29deaa2c29897ec1e6cdfa632ffd9a577ff86e6f17e61805c2"
