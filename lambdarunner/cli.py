@@ -1,7 +1,7 @@
 """CLI entry point using Typer + Rich."""
 
 import json
-import sys
+import os
 from typing import Annotated
 
 import typer
@@ -10,7 +10,7 @@ from rich.panel import Panel
 from rich.syntax import Syntax
 
 from lambdarunner.loader import load_env_file
-from lambdarunner.runner import LambdaTimeoutError, invoke, parse_event
+from lambdarunner.runner import HandlerError, LambdaTimeoutError, invoke, parse_event
 
 app = typer.Typer(
     name="lambdarunner",
@@ -45,6 +45,10 @@ def invoke_cmd(
         int,
         typer.Option("--timeout", "-t", help="Timeout in seconds"),
     ] = 30,
+    memory: Annotated[
+        int,
+        typer.Option("--memory", "-m", help="Simulated memory limit in MB"),
+    ] = 128,
     env_file: Annotated[
         str | None,
         typer.Option("--env-file", help="Path to .env file"),
@@ -61,6 +65,10 @@ def invoke_cmd(
         bool,
         typer.Option("--pretty/--no-pretty", help="Pretty print JSON output"),
     ] = True,
+    traceback: Annotated[
+        bool,
+        typer.Option("--traceback", help="Show full traceback on handler errors"),
+    ] = False,
 ) -> None:
     """Invoke a Lambda handler locally."""
     # Display invocation info
@@ -69,12 +77,18 @@ def invoke_cmd(
         f"[bold]Handler[/bold]  : {handler}\n"
         f"[bold]Event[/bold]    : {event_display}\n"
         f"[bold]Timeout[/bold]  : {timeout}s\n"
+        f"[bold]Memory[/bold]   : {memory}MB\n"
         f"[bold]Region[/bold]   : {region}"
     )
     if profile:
         info_text += f"\n[bold]Profile[/bold]  : {profile}"
 
     console.print(Panel(info_text, title="Lambda Runner", border_style="cyan"))
+
+    os.environ["AWS_DEFAULT_REGION"] = region
+    os.environ["AWS_REGION"] = region
+    if profile:
+        os.environ["AWS_PROFILE"] = profile
 
     # Load env file if provided
     if env_file:
@@ -110,6 +124,7 @@ def invoke_cmd(
             handler_path=handler,
             event=parsed_event,
             timeout=timeout,
+            memory=memory,
             region=region,
         )
     except LambdaTimeoutError as exc:
@@ -130,16 +145,33 @@ def invoke_cmd(
             )
         )
         raise typer.Exit(1) from None
-    except Exception as exc:
+    except HandlerError as exc:
         err_console.print(
             Panel(
-                f"[red]{type(exc).__name__}: {exc}[/red]",
+                f"[red]{exc}[/red]",
                 title="Handler Error",
                 border_style="red",
             )
         )
-        if "--traceback" not in sys.argv:
-            console.print("[dim]The handler raised an unhandled exception.[/dim]")
+        if traceback and exc.exc_traceback:
+            err_console.print(
+                Panel(
+                    exc.exc_traceback.rstrip(),
+                    title="Traceback",
+                    border_style="yellow",
+                )
+            )
+        elif not traceback:
+            console.print("[dim]Use --traceback for full error details.[/dim]")
+        raise typer.Exit(1) from None
+    except Exception as exc:
+        err_console.print(
+            Panel(
+                f"[red]{type(exc).__name__}: {exc}[/red]",
+                title="Error",
+                border_style="red",
+            )
+        )
         raise typer.Exit(1) from None
 
     # Display result
