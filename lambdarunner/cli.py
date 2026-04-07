@@ -91,7 +91,8 @@ def invoke_cmd(
         bool,
         typer.Option(
             "--mock-aws",
-            help="Start a local moto server and redirect AWS calls to it (requires lambdarunner[mock])",
+            help="Start a local moto server and redirect AWS calls to it "
+            "(requires lambdarunner[mock])",
         ),
     ] = False,
     watch: Annotated[
