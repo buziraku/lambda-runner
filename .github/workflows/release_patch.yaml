@@ -58,3 +58,4 @@ jobs:
         with:
           tag_name: ${{ steps.bump.outputs.tag }}
           files: dist/*
+          generate_release_notes: true
