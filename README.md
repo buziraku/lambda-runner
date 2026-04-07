@@ -49,9 +49,14 @@ echo '{"name": "Pipe"}' | lambdarunner invoke handler.lambda_handler -e -
 
 # Watch mode (re-invoke on file changes)
 lambdarunner invoke handler.lambda_handler -e event.json --watch
+
+# With AWS mocking (boto3 calls intercepted by moto)
+lambdarunner invoke handler.lambda_handler -e event.json --mock-aws
 ```
 
 Watch mode requires: `pip install lambdarunner[watch]`
+
+Mock AWS mode requires: `pip install lambdarunner[mock]`
 
 ## CLI Options
 
@@ -66,7 +71,32 @@ Watch mode requires: `pip install lambdarunner[watch]`
 | `--pretty / --no-pretty` | | `True` | Pretty print JSON output |
 | `--traceback` | | `False` | Show full traceback on handler errors |
 | `--watch` | `-w` | `False` | Re-invoke on handler file changes |
+| `--mock-aws` | | `False` | Start a local moto server and redirect boto3 calls to it |
 | `--version` | `-V` | | Show version and exit |
+
+## Mock AWS
+
+Use `--mock-aws` to intercept all `boto3` calls with [moto](https://github.com/getmoto/moto) — no AWS account, no credentials, no Docker required.
+
+```python
+# handler.py
+import boto3
+
+def lambda_handler(event, context):
+    s3 = boto3.client("s3")
+    s3.create_bucket(Bucket="my-bucket")
+    s3.put_object(Bucket="my-bucket", Key="hello.txt", Body=b"world")
+    obj = s3.get_object(Bucket="my-bucket", Key="hello.txt")
+    return {"body": obj["Body"].read().decode()}
+```
+
+```bash
+lambdarunner invoke handler.lambda_handler --mock-aws
+```
+
+boto3 is redirected to a local moto server automatically — no `@mock_aws` decorators needed in your handler code.
+
+**Note:** AWS state (buckets, tables, queues, etc.) is reset on every invocation. In `--watch` mode, each file-change re-invoke starts with a fresh mock environment.
 
 ## Shell Completion
 

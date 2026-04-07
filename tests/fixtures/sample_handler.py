@@ -40,3 +40,13 @@ def crash_handler(event, context):
     import os
 
     os._exit(1)
+
+
+def mock_env_handler(event, context):
+    """Handler that returns mock-related environment variables."""
+    import os
+
+    return {
+        "endpoint_url": os.environ.get("AWS_ENDPOINT_URL", ""),
+        "access_key": os.environ.get("AWS_ACCESS_KEY_ID", ""),
+    }

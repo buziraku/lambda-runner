@@ -23,9 +23,11 @@ python = ">=3.12,<4.0"
 typer = "==0.24.1"
 rich = "==14.3.3"
 watchfiles = {version = "==1.1.1", optional = true}
+moto = {version = "==5.1.22", optional = true, extras = ["server"]}
 
 [tool.poetry.extras]
 watch = ["watchfiles"]
+mock = ["moto"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "==9.0.2"
