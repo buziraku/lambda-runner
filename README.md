@@ -2,6 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/lambdarunner.svg)](https://pypi.org/project/lambdarunner/)
 [![Python](https://img.shields.io/pypi/pyversions/lambdarunner.svg)](https://pypi.org/project/lambdarunner/)
+[![CI](https://github.com/buziraku/lambdarunner/actions/workflows/ci.yml/badge.svg)](https://github.com/buziraku/lambdarunner/actions/workflows/ci.yml)
 
 Run AWS Lambda handlers locally. No Docker, no SAM, no AWS connection required.
 
