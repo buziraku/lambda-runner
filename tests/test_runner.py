@@ -205,3 +205,44 @@ class TestLoadEnvFile:
 
         with pytest.raises(FileNotFoundError):
             load_env_file("/nonexistent/.env")
+
+    def test_export_prefix(self, tmp_path):
+        from lambdarunner.loader import load_env_file
+
+        env = tmp_path / ".env"
+        env.write_text("export API_KEY=secret123\n")
+        loaded = load_env_file(str(env))
+        assert loaded["API_KEY"] == "secret123"
+
+    def test_inline_comments(self, tmp_path):
+        from lambdarunner.loader import load_env_file
+
+        env = tmp_path / ".env"
+        env.write_text("HOST=localhost  # dev server\n")
+        loaded = load_env_file(str(env))
+        assert loaded["HOST"] == "localhost"
+
+    def test_multiline_value(self, tmp_path):
+        from lambdarunner.loader import load_env_file
+
+        env = tmp_path / ".env"
+        env.write_text('CERT="line1\nline2\nline3"\n')
+        loaded = load_env_file(str(env))
+        assert loaded["CERT"] == "line1\nline2\nline3"
+
+    def test_variable_expansion(self, tmp_path):
+        from lambdarunner.loader import load_env_file
+
+        env = tmp_path / ".env"
+        env.write_text("BASE=/app\nDATA=${BASE}/data\nLOG=$BASE/logs\n")
+        loaded = load_env_file(str(env))
+        assert loaded["DATA"] == "/app/data"
+        assert loaded["LOG"] == "/app/logs"
+
+    def test_single_quotes_no_expansion(self, tmp_path):
+        from lambdarunner.loader import load_env_file
+
+        env = tmp_path / ".env"
+        env.write_text("BASE=/app\nRAW='$BASE/literal'\n")
+        loaded = load_env_file(str(env))
+        assert loaded["RAW"] == "$BASE/literal"

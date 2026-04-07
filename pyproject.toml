@@ -2,7 +2,7 @@
 name = "lambdarunner"
 version = "0.2.1"
 description = "Run AWS Lambda handlers locally. No Docker, no SAM, no AWS connection required."
-authors = ["Your Name <you@example.com>"]
+authors = ["buziraku <buziraku@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = ["aws", "lambda", "serverless", "local", "cli"]

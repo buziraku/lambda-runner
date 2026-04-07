@@ -78,27 +78,18 @@ def invalidate_handler_cache(handler_path: str) -> None:
     sys.modules.pop(module_path, None)
 
 
-def load_env_file(env_file: str) -> dict[str, str]:
-    """Load environment variables from a .env file.
+def _parse_env_content(content: str):
+    """Parse .env content yielding (key, raw_value, quote_char) tuples."""
+    lines = content.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        i += 1
 
-    Supports KEY=VALUE format, ignores comments (#) and blank lines.
-    Strips surrounding quotes from values.
-
-    Returns:
-        Dict of loaded variable names to values.
-    """
-    import os
-
-    loaded: dict[str, str] = {}
-    path = Path(env_file)
-
-    if not path.exists():
-        raise FileNotFoundError(f"Env file not found: {env_file}")
-
-    for line in path.read_text().splitlines():
-        line = line.strip()
         if not line or line.startswith("#"):
             continue
+        if line.startswith("export "):
+            line = line[7:].strip()
         if "=" not in line:
             continue
 
@@ -106,9 +97,58 @@ def load_env_file(env_file: str) -> dict[str, str]:
         key = key.strip()
         value = value.strip()
 
-        # Strip surrounding quotes
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
+        quote_char = ""
+        if value and value[0] in ('"', "'"):
+            quote_char = value[0]
+            if len(value) >= 2 and value[-1] == quote_char:
+                value = value[1:-1]
+            else:
+                parts = [value[1:]]
+                while i < len(lines):
+                    raw = lines[i]
+                    i += 1
+                    if raw.rstrip().endswith(quote_char):
+                        parts.append(raw.rstrip()[:-1])
+                        break
+                    parts.append(raw)
+                value = "\n".join(parts)
+        else:
+            idx = value.find(" #")
+            if idx >= 0:
+                value = value[:idx].rstrip()
+
+        yield key, value, quote_char
+
+
+def load_env_file(env_file: str) -> dict[str, str]:
+    """Load environment variables from a .env file.
+
+    Supports KEY=VALUE format, export prefix, inline comments,
+    multiline quoted values, and variable expansion ($VAR / ${VAR}).
+    Single-quoted values are treated as literals (no expansion).
+
+    Returns:
+        Dict of loaded variable names to values.
+    """
+    import os
+    import re
+
+    loaded: dict[str, str] = {}
+    path = Path(env_file)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Env file not found: {env_file}")
+
+    for key, value, quote_char in _parse_env_content(path.read_text()):
+        if quote_char != "'":
+            value = re.sub(
+                r"\$\{(\w+)\}|\$(\w+)",
+                lambda m: loaded.get(
+                    m.group(1) or m.group(2),
+                    os.environ.get(m.group(1) or m.group(2), ""),
+                ),
+                value,
+            )
 
         os.environ[key] = value
         loaded[key] = value
