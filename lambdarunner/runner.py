@@ -59,6 +59,15 @@ def parse_event(event_input: str) -> Any:
     return json.loads(event_input)
 
 
+def _find_free_port() -> int:
+    """Return an ephemeral free TCP port on localhost."""
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
 def _run_handler_in_process(
     handler: Callable[..., Any],
     event: Any,
@@ -68,6 +77,7 @@ def _run_handler_in_process(
     memory: int,
     region: str,
     result_queue: multiprocessing.Queue,
+    mock_aws_endpoint: str | None = None,
 ) -> None:
     """Execute a Lambda handler in an isolated subprocess."""
     os.environ.update(
@@ -80,6 +90,12 @@ def _run_handler_in_process(
             "_HANDLER": handler_path,
         }
     )
+
+    if mock_aws_endpoint:
+        os.environ["AWS_ENDPOINT_URL"] = mock_aws_endpoint
+        os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
+        os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
+        os.environ.setdefault("AWS_SESSION_TOKEN", "testing")
 
     context = LambdaContext(
         function_name=function_name,
@@ -109,6 +125,7 @@ def invoke(
     timeout: int = 30,
     memory: int = 128,
     region: str = "us-east-1",
+    mock_aws: bool = False,
 ) -> tuple[Any, float]:
     """Invoke a Lambda handler locally.
 
@@ -118,6 +135,7 @@ def invoke(
         timeout: Timeout in seconds.
         memory: Simulated memory limit in MB.
         region: Simulated AWS region.
+        mock_aws: If True, start a local moto server and redirect AWS SDK calls to it.
 
     Returns:
         Tuple of (handler result, execution time in seconds).
@@ -133,6 +151,22 @@ def invoke(
 
     function_name = handler_path.rsplit(".", 1)[0].replace(".", "_")
 
+    mock_server = None
+    mock_endpoint: str | None = None
+
+    if mock_aws:
+        try:
+            from moto.server import ThreadedMotoServer
+        except ImportError:
+            raise ImportError(
+                "moto is required for --mock-aws mode. "
+                "Install with: pip install lambdarunner[mock]"
+            ) from None
+        port = _find_free_port()
+        mock_server = ThreadedMotoServer(port=port)
+        mock_server.start()
+        mock_endpoint = f"http://127.0.0.1:{port}"
+
     result_queue: multiprocessing.Queue = multiprocessing.Queue()
     process = multiprocessing.Process(
         target=_run_handler_in_process,
@@ -145,33 +179,38 @@ def invoke(
             memory,
             region,
             result_queue,
+            mock_endpoint,
         ),
     )
 
-    process.start()
-    process.join(timeout=timeout)
+    try:
+        process.start()
+        process.join(timeout=timeout)
 
-    if process.is_alive():
-        process.terminate()
-        process.join(timeout=5)
         if process.is_alive():
-            process.kill()
-            process.join()
-        raise LambdaTimeoutError(timeout)
+            process.terminate()
+            process.join(timeout=5)
+            if process.is_alive():
+                process.kill()
+                process.join()
+            raise LambdaTimeoutError(timeout)
 
-    if result_queue.empty():
-        raise HandlerError(
-            "ProcessError",
-            f"Handler process exited with code {process.exitcode}"
-            " without producing a result",
-            "",
-        )
+        if result_queue.empty():
+            raise HandlerError(
+                "ProcessError",
+                f"Handler process exited with code {process.exitcode}"
+                " without producing a result",
+                "",
+            )
 
-    status, *payload = result_queue.get_nowait()
+        status, *payload = result_queue.get_nowait()
 
-    if status == "ok":
-        result, elapsed = payload
-        return result, elapsed
+        if status == "ok":
+            result, elapsed = payload
+            return result, elapsed
 
-    exc_type_name, exc_message, exc_traceback, elapsed = payload
-    raise HandlerError(exc_type_name, exc_message, exc_traceback)
+        exc_type_name, exc_message, exc_traceback, elapsed = payload
+        raise HandlerError(exc_type_name, exc_message, exc_traceback)
+    finally:
+        if mock_server is not None:
+            mock_server.stop()

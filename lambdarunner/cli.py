@@ -87,6 +87,13 @@ def invoke_cmd(
         bool,
         typer.Option("--traceback", help="Show full traceback on handler errors"),
     ] = False,
+    mock_aws: Annotated[
+        bool,
+        typer.Option(
+            "--mock-aws",
+            help="Start a local moto server and redirect AWS calls to it (requires lambdarunner[mock])",
+        ),
+    ] = False,
     watch: Annotated[
         bool,
         typer.Option("--watch", "-w", help="Re-invoke on handler file changes"),
@@ -104,6 +111,8 @@ def invoke_cmd(
     )
     if profile:
         info_text += f"\n[bold]Profile[/bold]  : {profile}"
+    if mock_aws:
+        info_text += "\n[bold]Mock AWS[/bold] : enabled (moto)"
 
     console.print(Panel(info_text, title="Lambda Runner", border_style="cyan"))
 
@@ -148,6 +157,7 @@ def invoke_cmd(
                 timeout=timeout,
                 memory=memory,
                 region=region,
+                mock_aws=mock_aws,
             )
         except LambdaTimeoutError as exc:
             err_console.print(
@@ -185,6 +195,15 @@ def invoke_cmd(
                 )
             elif not traceback:
                 console.print("[dim]Use --traceback for full error details.[/dim]")
+            return False
+        except ImportError as exc:
+            err_console.print(
+                Panel(
+                    f"[red]{exc}[/red]",
+                    title="Missing Dependency",
+                    border_style="red",
+                )
+            )
             return False
         except Exception as exc:
             err_console.print(

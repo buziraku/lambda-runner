@@ -156,6 +156,45 @@ class TestInvoke:
                 timeout=10,
             )
 
+    def test_mock_aws_injects_endpoint_url(self):
+        pytest.importorskip("moto")
+        result, _ = invoke(
+            handler_path="sample_handler.mock_env_handler",
+            event={},
+            timeout=10,
+            mock_aws=True,
+        )
+        assert result["endpoint_url"].startswith("http://127.0.0.1:")
+        assert result["access_key"] == "testing"
+
+    def test_no_mock_aws_does_not_inject_endpoint_url(self):
+        result, _ = invoke(
+            handler_path="sample_handler.mock_env_handler",
+            event={},
+            timeout=10,
+            mock_aws=False,
+        )
+        assert result["endpoint_url"] == ""
+
+    def test_mock_aws_without_moto_raises_import_error(self, monkeypatch):
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "moto.server":
+                raise ImportError("No module named 'moto'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        with pytest.raises(ImportError, match=r"lambdarunner\[mock\]"):
+            invoke(
+                handler_path="sample_handler.lambda_handler",
+                event={},
+                timeout=5,
+                mock_aws=True,
+            )
+
 
 class TestResolveHandlerFile:
     def test_resolves_to_file(self):
