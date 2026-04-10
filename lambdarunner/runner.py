@@ -54,7 +54,7 @@ def parse_event(event_input: str) -> Any:
 
     path = Path(event_input)
     if path.exists() and path.is_file():
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8-sig"))
 
     return json.loads(event_input)
 

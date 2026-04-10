@@ -53,6 +53,13 @@ class TestParseEvent:
         result = parse_event("-")
         assert result == {"source": "stdin"}
 
+    def test_from_file_with_bom(self, tmp_path):
+        """UTF-8 BOM files (e.g. from PowerShell 5 Out-File) should parse correctly."""
+        event_file = tmp_path / "event.json"
+        event_file.write_bytes(b"\xef\xbb\xbf" + b'{"name": "BOM"}')
+        result = parse_event(str(event_file))
+        assert result == {"name": "BOM"}
+
 
 class TestInvoke:
     def test_successful_handler(self):

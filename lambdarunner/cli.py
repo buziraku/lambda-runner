@@ -8,6 +8,7 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.table import Table
 
 from lambdarunner import __version__
 from lambdarunner.loader import load_env_file
@@ -272,6 +273,35 @@ def invoke_cmd(
             )
     except KeyboardInterrupt:
         console.print("\n[dim]Watch mode stopped.[/dim]")
+
+
+@app.command("template")
+def template_cmd(
+    event_type: Annotated[
+        str | None,
+        typer.Argument(help="Event type (s3, sqs, sns, eventbridge, apigw, apigw-v2)"),
+    ] = None,
+) -> None:
+    """List available AWS event templates or print one as JSON."""
+    from lambdarunner.templates import get_template, list_templates
+
+    if event_type is None:
+        table = Table(title="AWS Lambda event templates", border_style="cyan")
+        table.add_column("Type", style="cyan bold")
+        table.add_column("Description")
+        for name, description in list_templates():
+            table.add_row(name, description)
+        console.print(table)
+        return
+
+    try:
+        template = get_template(event_type)
+    except ValueError as exc:
+        err_console.print(Panel(f"[red]{exc}[/red]", title="Error", border_style="red"))
+        raise typer.Exit(1) from None
+
+    formatted = json.dumps(template, indent=2, ensure_ascii=False)
+    console.print(Syntax(formatted, "json", theme="monokai"))
 
 
 if __name__ == "__main__":

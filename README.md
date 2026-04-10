@@ -59,6 +59,38 @@ Watch mode requires: `pip install lambdarunner[watch]`
 
 Mock AWS mode requires: `pip install lambdarunner[mock]`
 
+## Event Templates
+
+Generate ready-to-use event JSON for the most common Lambda trigger types:
+
+```bash
+# List all available templates
+lambdarunner template
+
+# Print a template to the terminal
+lambdarunner template s3
+lambdarunner template sqs
+lambdarunner template sns
+lambdarunner template eventbridge
+lambdarunner template apigw       # API Gateway REST API (v1)
+lambdarunner template apigw-v2    # API Gateway HTTP API (v2)
+```
+
+Save to file and use with `invoke`:
+
+```bash
+# Bash / Zsh (Linux, macOS)
+lambdarunner template s3 > event.json
+lambdarunner invoke handler.lambda_handler --event event.json
+
+# PowerShell 7 (pwsh)
+lambdarunner template s3 > event.json
+
+# PowerShell 5 (Windows PowerShell)
+# Use Out-File to ensure UTF-8 encoding (plain `>` produces UTF-16 in PS5)
+lambdarunner template s3 | Out-File -Encoding utf8 event.json
+```
+
 ## CLI Options
 
 | Flag | Short | Default | Description |
