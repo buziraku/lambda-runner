@@ -21,7 +21,7 @@ lambdarunner = "lambdarunner.cli:app"
 [tool.poetry.dependencies]
 python = ">=3.12,<4.0"
 typer = "==0.24.1"
-rich = "==14.3.3"
+rich = "==14.3.4"
 watchfiles = {version = "==1.1.1", optional = true}
 moto = {version = "==5.1.22", optional = true, extras = ["server"]}
 
