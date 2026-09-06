@@ -31,7 +31,7 @@ mock = ["moto"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "==9.0.2"
-ruff = "==0.15.9"
+ruff = "==0.16.6"
 
 [build-system]
 requires = ["poetry-core"]
